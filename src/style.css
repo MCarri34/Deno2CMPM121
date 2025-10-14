@@ -58,3 +58,10 @@ button:hover {
   transform: none;
   pointer-events: none;
 }
+
+/* Tool selection highlight */
+.selectedTool {
+  background-color: #ffa500; /* yellow highlight */
+  color: black;
+  transform: translateY(-1px);
+}

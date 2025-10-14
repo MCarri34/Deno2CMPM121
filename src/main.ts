@@ -6,6 +6,10 @@ document.body.innerHTML = `
     <h1>Deno 2: Sticker Sketchpad</h1>
     <canvas id="gameCanvas" width="256" height="256"></canvas>
     <div class="button-row">
+      <button id="thinButton">Thin Marker</button>
+      <button id="thickButton">Thick Marker</button>
+    </div>
+    <div class="button-row">
       <button id="undoButton">Undo</button>
       <button id="redoButton">Redo</button>
       <button id="clearButton">Clear Canvas</button>
@@ -16,9 +20,11 @@ document.body.innerHTML = `
 // MarkerLine class (represents one drawn stroke)
 class MarkerLine {
   private points: { x: number; y: number }[] = [];
+  private thickness: number;
 
-  constructor(startX: number, startY: number) {
+  constructor(startX: number, startY: number, thickness: number) {
     this.points.push({ x: startX, y: startY });
+    this.thickness = thickness;
   }
 
   // Extend the line with a new point
@@ -40,7 +46,7 @@ class MarkerLine {
     }
 
     ctx.strokeStyle = "black";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = this.thickness;
     ctx.lineCap = "round";
     ctx.stroke();
   }
@@ -55,7 +61,12 @@ let redoStack: MarkerLine[] = []; // Undone lines waiting to be redone
 let currentLine: MarkerLine | null = null;
 let isDrawing = false;
 
+// Marker tool state
+let currentThickness = 2; // Default to thin marker
+
 // Button Elements
+const thinButton = document.getElementById("thinButton") as HTMLButtonElement;
+const thickButton = document.getElementById("thickButton") as HTMLButtonElement;
 const undoButton = document.getElementById("undoButton") as HTMLButtonElement;
 const redoButton = document.getElementById("redoButton") as HTMLButtonElement;
 const clearButton = document.getElementById("clearButton") as HTMLButtonElement;
@@ -72,10 +83,31 @@ function redraw() {
 // Observer pattern: redraw on event
 canvas.addEventListener("drawing-changed", redraw);
 
+// Enable/disable undo and redo buttons
+function updateButtonStates() {
+  undoButton.disabled = drawing.length === 0;
+  redoButton.disabled = redoStack.length === 0;
+}
+
+// Tool Selection
+function selectTool(thickness: number, button: HTMLButtonElement) {
+  currentThickness = thickness;
+
+  // Remove selection from all tool buttons
+  thinButton.classList.remove("selectedTool");
+  thickButton.classList.remove("selectedTool");
+
+  // Highlight the active one
+  button.classList.add("selectedTool");
+}
+
+// Default tool is thin
+selectTool(2, thinButton);
+
 // Mouse Input
 canvas.addEventListener("mousedown", (event) => {
   isDrawing = true;
-  currentLine = new MarkerLine(event.offsetX, event.offsetY);
+  currentLine = new MarkerLine(event.offsetX, event.offsetY, currentThickness);
   drawing.push(currentLine);
   redoStack = []; // Clear redo history once a new line begins
   canvas.dispatchEvent(new Event("drawing-changed"));
@@ -119,11 +151,9 @@ clearButton.addEventListener("click", () => {
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
-// Enable/disable undo and redo buttons
-function updateButtonStates() {
-  undoButton.disabled = drawing.length === 0;
-  redoButton.disabled = redoStack.length === 0;
-}
+// Tool Button Events
+thinButton.addEventListener("click", () => selectTool(2, thinButton));
+thickButton.addEventListener("click", () => selectTool(6, thickButton));
 
 // Initialize button states
 updateButtonStates();
