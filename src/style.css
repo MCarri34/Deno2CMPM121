@@ -70,3 +70,15 @@ button:hover {
 canvas {
   transition: all 0.05s ease;
 }
+
+/* Emoji/sticker buttons match the rest */
+.button-row button {
+  font-size: 20px;
+}
+
+/* Selected tool highlight */
+.selectedTool {
+  background-color: #ffa500;
+  color: black;
+  transform: translateY(-1px);
+}

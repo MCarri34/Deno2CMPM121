@@ -5,10 +5,18 @@ document.body.innerHTML = `
   <div class="app-container">
     <h1>Deno 2: Sticker Sketchpad</h1>
     <canvas id="gameCanvas" width="256" height="256"></canvas>
+
     <div class="button-row">
       <button id="thinButton">Thin Marker</button>
       <button id="thickButton">Thick Marker</button>
     </div>
+
+    <div class="button-row">
+      <button id="starSticker">⭐</button>
+      <button id="catSticker">🐱</button>
+      <button id="balloonSticker">🎈</button>
+    </div>
+
     <div class="button-row">
       <button id="undoButton">Undo</button>
       <button id="redoButton">Redo</button>
@@ -52,28 +60,73 @@ class MarkerLine {
   }
 }
 
-// ToolPreview class (represents the floating marker preview)
+// Sticker class (represents a placed emoji)
+class Sticker {
+  private x: number;
+  private y: number;
+  private emoji: string;
+
+  constructor(x: number, y: number, emoji: string) {
+    this.x = x;
+    this.y = y;
+    this.emoji = emoji;
+  }
+
+  // Move sticker (drag behavior)
+  drag(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+
+  // Draw the sticker on the canvas
+  display(ctx: CanvasRenderingContext2D) {
+    ctx.font = "32px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(this.emoji, this.x, this.y);
+  }
+}
+
+// ToolPreview class (for marker or sticker preview)
 class ToolPreview {
   constructor(
     private x: number,
     private y: number,
+    private type: "marker" | "sticker",
     private thickness: number,
+    private emoji: string | null,
   ) {}
 
-  // Update preview position and thickness
-  update(x: number, y: number, thickness: number) {
+  // Update preview position and type
+  update(
+    x: number,
+    y: number,
+    type: "marker" | "sticker",
+    thickness: number,
+    emoji: string | null,
+  ) {
     this.x = x;
     this.y = y;
+    this.type = type;
     this.thickness = thickness;
+    this.emoji = emoji;
   }
 
-  // Draw the preview circle on the canvas
+  // Draw the preview shape or sticker
   display(ctx: CanvasRenderingContext2D) {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
-    ctx.strokeStyle = "gray";
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    if (this.type === "marker") {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = "gray";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else if (this.type === "sticker" && this.emoji) {
+      ctx.font = "32px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.fillText(this.emoji, this.x, this.y);
+    }
   }
 }
 
@@ -81,18 +134,25 @@ const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
 // Drawing data (Display List)
-let drawing: MarkerLine[] = []; // All finished lines
-let redoStack: MarkerLine[] = []; // Undone lines waiting to be redone
-let currentLine: MarkerLine | null = null;
+let drawing: (MarkerLine | Sticker)[] = []; // All drawn items
+let redoStack: (MarkerLine | Sticker)[] = []; // Undone items waiting to be redone
+let currentCommand: MarkerLine | Sticker | null = null;
 let isDrawing = false;
 
 // Tool data
-let currentThickness = 2; // Default to thin marker
-let preview: ToolPreview | null = null; // Current tool preview object
+let currentTool: "marker" | "sticker" = "marker";
+let currentThickness = 2; // Default marker thickness
+let currentEmoji: string | null = null; // Currently selected sticker
+let preview: ToolPreview | null = null; // Preview object
 
 // Button Elements
 const thinButton = document.getElementById("thinButton") as HTMLButtonElement;
 const thickButton = document.getElementById("thickButton") as HTMLButtonElement;
+const starSticker = document.getElementById("starSticker") as HTMLButtonElement;
+const catSticker = document.getElementById("catSticker") as HTMLButtonElement;
+const balloonSticker = document.getElementById(
+  "balloonSticker",
+) as HTMLButtonElement;
 const undoButton = document.getElementById("undoButton") as HTMLButtonElement;
 const redoButton = document.getElementById("redoButton") as HTMLButtonElement;
 const clearButton = document.getElementById("clearButton") as HTMLButtonElement;
@@ -100,8 +160,8 @@ const clearButton = document.getElementById("clearButton") as HTMLButtonElement;
 // Redraw function
 function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (const line of drawing) {
-    line.display(ctx);
+  for (const item of drawing) {
+    item.display(ctx);
   }
 
   // Draw tool preview if available and not drawing
@@ -124,14 +184,33 @@ function updateButtonStates() {
 
 // Tool Selection
 function selectTool(thickness: number, button: HTMLButtonElement) {
+  currentTool = "marker";
   currentThickness = thickness;
+  currentEmoji = null;
 
-  // Remove selection from all tool buttons
   thinButton.classList.remove("selectedTool");
   thickButton.classList.remove("selectedTool");
+  starSticker.classList.remove("selectedTool");
+  catSticker.classList.remove("selectedTool");
+  balloonSticker.classList.remove("selectedTool");
 
-  // Highlight the active one
   button.classList.add("selectedTool");
+  canvas.dispatchEvent(new Event("tool-moved"));
+}
+
+// Sticker Selection
+function selectSticker(emoji: string, button: HTMLButtonElement) {
+  currentTool = "sticker";
+  currentEmoji = emoji;
+
+  thinButton.classList.remove("selectedTool");
+  thickButton.classList.remove("selectedTool");
+  starSticker.classList.remove("selectedTool");
+  catSticker.classList.remove("selectedTool");
+  balloonSticker.classList.remove("selectedTool");
+
+  button.classList.add("selectedTool");
+  canvas.dispatchEvent(new Event("tool-moved"));
 }
 
 // Default to thin marker
@@ -140,39 +219,62 @@ selectTool(2, thinButton);
 // Mouse Input
 canvas.addEventListener("mousedown", (event) => {
   isDrawing = true;
-  currentLine = new MarkerLine(event.offsetX, event.offsetY, currentThickness);
-  drawing.push(currentLine);
-  redoStack = []; // Clear redo history once a new line begins
-  canvas.dispatchEvent(new Event("drawing-changed"));
+
+  if (currentTool === "marker") {
+    currentCommand = new MarkerLine(
+      event.offsetX,
+      event.offsetY,
+      currentThickness,
+    );
+  } else if (currentTool === "sticker" && currentEmoji) {
+    currentCommand = new Sticker(event.offsetX, event.offsetY, currentEmoji);
+  }
+
+  if (currentCommand) {
+    drawing.push(currentCommand);
+    redoStack = [];
+    canvas.dispatchEvent(new Event("drawing-changed"));
+  }
 });
 
 canvas.addEventListener("mousemove", (event) => {
   // Update or create tool preview
   if (!preview) {
-    preview = new ToolPreview(event.offsetX, event.offsetY, currentThickness);
+    preview = new ToolPreview(
+      event.offsetX,
+      event.offsetY,
+      currentTool,
+      currentThickness,
+      currentEmoji,
+    );
   } else {
-    preview.update(event.offsetX, event.offsetY, currentThickness);
+    preview.update(
+      event.offsetX,
+      event.offsetY,
+      currentTool,
+      currentThickness,
+      currentEmoji,
+    );
   }
 
-  // If drawing, add points to current line
-  if (isDrawing && currentLine) {
-    currentLine.drag(event.offsetX, event.offsetY);
+  // If drawing a marker, extend line; if sticker, move position
+  if (isDrawing && currentCommand) {
+    currentCommand.drag(event.offsetX, event.offsetY);
     canvas.dispatchEvent(new Event("drawing-changed"));
   } else {
-    // Otherwise, just move the tool preview
     canvas.dispatchEvent(new Event("tool-moved"));
   }
 });
 
 canvas.addEventListener("mouseup", () => {
   isDrawing = false;
-  currentLine = null;
+  currentCommand = null;
   canvas.dispatchEvent(new Event("tool-moved"));
 });
 
 canvas.addEventListener("mouseleave", () => {
   isDrawing = false;
-  preview = null; // Hide preview when mouse leaves the canvas
+  preview = null;
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
@@ -201,6 +303,12 @@ clearButton.addEventListener("click", () => {
 // Tool Button Events
 thinButton.addEventListener("click", () => selectTool(2, thinButton));
 thickButton.addEventListener("click", () => selectTool(6, thickButton));
+starSticker.addEventListener("click", () => selectSticker("⭐", starSticker));
+catSticker.addEventListener("click", () => selectSticker("🐱", catSticker));
+balloonSticker.addEventListener(
+  "click",
+  () => selectSticker("🎈", balloonSticker),
+);
 
 // Initialize button states
 updateButtonStates();
