@@ -1,6 +1,6 @@
 import "./style.css";
 
-// Create the basic app structure
+// App layout
 document.body.innerHTML = `
   <div class="app-container">
     <h1>Deno 2: Sticker Sketchpad</h1>
@@ -9,45 +9,68 @@ document.body.innerHTML = `
   </div>
 `;
 
-// Grab canvas and context
+type Point = { x: number; y: number };
+type Stroke = Point[];
+
 const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d")!;
 
-if (!ctx) {
-  console.error("Canvas rendering context not found!");
-  throw new Error("Canvas context initialization failed");
-}
-
-// Drawing state variables
+// Drawing data (display list)
+let drawing: Stroke[] = [];
+let currentStroke: Stroke = [];
 let isDrawing = false;
 
-// Handle mouse down (start drawing)
-canvas.addEventListener("mousedown", (event) => {
-  isDrawing = true;
-  ctx.beginPath();
-  ctx.moveTo(event.offsetX, event.offsetY);
-});
-
-// Handle mouse move (draw line)
-canvas.addEventListener("mousemove", (event) => {
-  if (!isDrawing) return;
-  ctx.lineTo(event.offsetX, event.offsetY);
-  ctx.strokeStyle = "black"; // simple black marker
+// Redraw the entire canvas
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "black";
   ctx.lineWidth = 2;
   ctx.lineCap = "round";
-  ctx.stroke();
+
+  for (const stroke of drawing) {
+    if (stroke.length < 2) continue;
+
+    // With noUncheckedIndexedAccess, assert elements exist after our guard:
+    const first = stroke[0]!;
+    ctx.beginPath();
+    ctx.moveTo(first.x, first.y);
+
+    for (let i = 1; i < stroke.length; i++) {
+      const pt = stroke[i]!;
+      ctx.lineTo(pt.x, pt.y);
+    }
+    ctx.stroke();
+  }
+}
+
+// Observer: redraw whenever the drawing changes
+canvas.addEventListener("drawing-changed", redraw);
+
+// Mouse input -> update model, then dispatch change event
+canvas.addEventListener("mousedown", (event) => {
+  isDrawing = true;
+  currentStroke = [{ x: event.offsetX, y: event.offsetY }];
+  drawing.push(currentStroke);
+  canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
-// Handle mouse up and leave (stop drawing)
+canvas.addEventListener("mousemove", (event) => {
+  if (!isDrawing) return;
+  currentStroke.push({ x: event.offsetX, y: event.offsetY });
+  canvas.dispatchEvent(new Event("drawing-changed"));
+});
+
 canvas.addEventListener("mouseup", () => {
   isDrawing = false;
 });
+
 canvas.addEventListener("mouseleave", () => {
   isDrawing = false;
 });
 
-// Clear canvas button logic
+// Clear button: reset model and notify observer
 const clearButton = document.getElementById("clearButton") as HTMLButtonElement;
 clearButton.addEventListener("click", () => {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawing = [];
+  canvas.dispatchEvent(new Event("drawing-changed"));
 });
