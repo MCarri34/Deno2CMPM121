@@ -13,79 +13,91 @@ document.body.innerHTML = `
   </div>
 `;
 
-type Point = { x: number; y: number };
-type Stroke = Point[];
+// MarkerLine class (represents one drawn stroke)
+class MarkerLine {
+  private points: { x: number; y: number }[] = [];
+
+  constructor(startX: number, startY: number) {
+    this.points.push({ x: startX, y: startY });
+  }
+
+  // Extend the line with a new point
+  drag(x: number, y: number) {
+    this.points.push({ x, y });
+  }
+
+  // Draw the line on the canvas
+  display(ctx: CanvasRenderingContext2D) {
+    if (this.points.length < 2) return;
+
+    ctx.beginPath();
+    const first = this.points[0]!;
+    ctx.moveTo(first.x, first.y);
+
+    for (let i = 1; i < this.points.length; i++) {
+      const pt = this.points[i]!;
+      ctx.lineTo(pt.x, pt.y);
+    }
+
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.stroke();
+  }
+}
 
 const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
-// Drawing data
-let drawing: Stroke[] = [];
-let redoStack: Stroke[] = [];
-let currentStroke: Stroke = [];
+// Drawing data (Display List)
+let drawing: MarkerLine[] = []; // All finished lines
+let redoStack: MarkerLine[] = []; // Undone lines waiting to be redone
+let currentLine: MarkerLine | null = null;
 let isDrawing = false;
 
-// Buttons
+// Button Elements
 const undoButton = document.getElementById("undoButton") as HTMLButtonElement;
 const redoButton = document.getElementById("redoButton") as HTMLButtonElement;
 const clearButton = document.getElementById("clearButton") as HTMLButtonElement;
 
-// Helper: redraw everything
+// Redraw function
 function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = "black";
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
-
-  for (const stroke of drawing) {
-    if (stroke.length < 2) continue;
-    const first = stroke[0]!;
-    ctx.beginPath();
-    ctx.moveTo(first.x, first.y);
-
-    for (let i = 1; i < stroke.length; i++) {
-      const pt = stroke[i]!;
-      ctx.lineTo(pt.x, pt.y);
-    }
-    ctx.stroke();
+  for (const line of drawing) {
+    line.display(ctx);
   }
-
   updateButtonStates();
 }
 
-// Observer: redraw when changed
+// Observer pattern: redraw on event
 canvas.addEventListener("drawing-changed", redraw);
 
-// Helper: update Undo/Redo button state
-function updateButtonStates() {
-  undoButton.disabled = drawing.length === 0;
-  redoButton.disabled = redoStack.length === 0;
-}
-
-// Mouse input
+// Mouse Input
 canvas.addEventListener("mousedown", (event) => {
   isDrawing = true;
-  currentStroke = [{ x: event.offsetX, y: event.offsetY }];
-  drawing.push(currentStroke);
-  redoStack = []; // clear redo history when new stroke begins
+  currentLine = new MarkerLine(event.offsetX, event.offsetY);
+  drawing.push(currentLine);
+  redoStack = []; // Clear redo history once a new line begins
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
 canvas.addEventListener("mousemove", (event) => {
-  if (!isDrawing) return;
-  currentStroke.push({ x: event.offsetX, y: event.offsetY });
+  if (!isDrawing || !currentLine) return;
+  currentLine.drag(event.offsetX, event.offsetY);
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
 canvas.addEventListener("mouseup", () => {
   isDrawing = false;
+  currentLine = null;
 });
 
 canvas.addEventListener("mouseleave", () => {
   isDrawing = false;
+  currentLine = null;
 });
 
-// Undo / Redo / Clear
+// Undo & Redo Logic
 undoButton.addEventListener("click", () => {
   if (drawing.length === 0) return;
   const undone = drawing.pop()!;
@@ -100,11 +112,18 @@ redoButton.addEventListener("click", () => {
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
+// Clear Canvas
 clearButton.addEventListener("click", () => {
   drawing = [];
   redoStack = [];
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
-// Initialize button state on load
+// Enable/disable undo and redo buttons
+function updateButtonStates() {
+  undoButton.disabled = drawing.length === 0;
+  redoButton.disabled = redoStack.length === 0;
+}
+
+// Initialize button states
 updateButtonStates();
