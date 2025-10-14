@@ -1,5 +1,19 @@
-.icon {
-  width: 64px;
-  vertical-align: top;
-  border: 1px solid salmon;
+/* Center everything neatly on the page */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+  font-family: system-ui, sans-serif;
+  background-color: #f8f9fa;
+}
+
+/* Canvas styling (visible border and slight lift) */
+canvas {
+  border: 1px solid black;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  margin-top: 16px;
 }

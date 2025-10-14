@@ -1,6 +1,19 @@
-import exampleIconUrl from "./noun-paperclip-7598668-00449F.png";
 import "./style.css";
 
+// Create the initial non-interactive UI layout
 document.body.innerHTML = `
-  <p>Example image asset: <img src="${exampleIconUrl}" class="icon" /></p>
+  <div class="app-container">
+    <h1>D2: Sticker Sketchpad</h1>
+    <canvas id="gameCanvas" width="256" height="256"></canvas>
+  </div>
 `;
+
+// Verify the canvas exists
+const canvas = document.getElementById("gameCanvas") as
+  | HTMLCanvasElement
+  | null;
+if (!canvas) {
+  console.error("Canvas element not found!");
+} else {
+  console.log("Canvas initialized successfully:", canvas);
+}
