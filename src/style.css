@@ -1,3 +1,4 @@
+/* Main container that centers everything */
 .app-container {
   display: flex;
   flex-direction: column;
@@ -9,6 +10,7 @@
   background-color: #f8f9fa;
 }
 
+/* Canvas styling */
 canvas {
   border: 1px solid black;
   border-radius: 8px;
@@ -17,8 +19,15 @@ canvas {
   cursor: crosshair;
 }
 
-button {
+/* Button container (for Undo, Redo, Clear) */
+.button-row {
+  display: flex;
+  gap: 8px;
   margin-top: 12px;
+}
+
+/* Shared button styles */
+button {
   padding: 6px 12px;
   border: none;
   background-color: #00449f;
@@ -27,8 +36,18 @@ button {
   cursor: pointer;
   font-size: 14px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
+/* Button hover effect */
 button:hover {
   background-color: #0066cc;
+  transform: translateY(-1px);
+}
+
+/* Disabled state */
+button:disabled {
+  background-color: #b0b0b0;
+  cursor: not-allowed;
+  box-shadow: none;
 }

@@ -5,7 +5,11 @@ document.body.innerHTML = `
   <div class="app-container">
     <h1>Deno 2: Sticker Sketchpad</h1>
     <canvas id="gameCanvas" width="256" height="256"></canvas>
-    <button id="clearButton">Clear Canvas</button>
+    <div class="button-row">
+      <button id="undoButton">Undo</button>
+      <button id="redoButton">Redo</button>
+      <button id="clearButton">Clear Canvas</button>
+    </div>
   </div>
 `;
 
@@ -15,12 +19,18 @@ type Stroke = Point[];
 const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
-// Drawing data (display list)
+// Drawing data
 let drawing: Stroke[] = [];
+let redoStack: Stroke[] = [];
 let currentStroke: Stroke = [];
 let isDrawing = false;
 
-// Redraw the entire canvas
+// Buttons
+const undoButton = document.getElementById("undoButton") as HTMLButtonElement;
+const redoButton = document.getElementById("redoButton") as HTMLButtonElement;
+const clearButton = document.getElementById("clearButton") as HTMLButtonElement;
+
+// Helper: redraw everything
 function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = "black";
@@ -29,8 +39,6 @@ function redraw() {
 
   for (const stroke of drawing) {
     if (stroke.length < 2) continue;
-
-    // With noUncheckedIndexedAccess, assert elements exist after our guard:
     const first = stroke[0]!;
     ctx.beginPath();
     ctx.moveTo(first.x, first.y);
@@ -41,16 +49,25 @@ function redraw() {
     }
     ctx.stroke();
   }
+
+  updateButtonStates();
 }
 
-// Observer: redraw whenever the drawing changes
+// Observer: redraw when changed
 canvas.addEventListener("drawing-changed", redraw);
 
-// Mouse input -> update model, then dispatch change event
+// Helper: update Undo/Redo button state
+function updateButtonStates() {
+  undoButton.disabled = drawing.length === 0;
+  redoButton.disabled = redoStack.length === 0;
+}
+
+// Mouse input
 canvas.addEventListener("mousedown", (event) => {
   isDrawing = true;
   currentStroke = [{ x: event.offsetX, y: event.offsetY }];
   drawing.push(currentStroke);
+  redoStack = []; // clear redo history when new stroke begins
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
@@ -68,9 +85,26 @@ canvas.addEventListener("mouseleave", () => {
   isDrawing = false;
 });
 
-// Clear button: reset model and notify observer
-const clearButton = document.getElementById("clearButton") as HTMLButtonElement;
-clearButton.addEventListener("click", () => {
-  drawing = [];
+// Undo / Redo / Clear
+undoButton.addEventListener("click", () => {
+  if (drawing.length === 0) return;
+  const undone = drawing.pop()!;
+  redoStack.push(undone);
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
+
+redoButton.addEventListener("click", () => {
+  if (redoStack.length === 0) return;
+  const redone = redoStack.pop()!;
+  drawing.push(redone);
+  canvas.dispatchEvent(new Event("drawing-changed"));
+});
+
+clearButton.addEventListener("click", () => {
+  drawing = [];
+  redoStack = [];
+  canvas.dispatchEvent(new Event("drawing-changed"));
+});
+
+// Initialize button state on load
+updateButtonStates();
