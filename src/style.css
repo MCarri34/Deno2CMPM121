@@ -1,4 +1,3 @@
-/* Center everything neatly on the page */
 .app-container {
   display: flex;
   flex-direction: column;
@@ -10,10 +9,26 @@
   background-color: #f8f9fa;
 }
 
-/* Canvas styling (visible border and slight lift) */
 canvas {
   border: 1px solid black;
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   margin-top: 16px;
+  cursor: crosshair;
+}
+
+button {
+  margin-top: 12px;
+  padding: 6px 12px;
+  border: none;
+  background-color: #00449f;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+button:hover {
+  background-color: #0066cc;
 }
