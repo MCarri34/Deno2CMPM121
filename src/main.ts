@@ -3,7 +3,7 @@ import "./style.css";
 // Create the initial non-interactive UI layout
 document.body.innerHTML = `
   <div class="app-container">
-    <h1>D2: Sticker Sketchpad</h1>
+    <h1>Deno 2: Sticker Sketchpad</h1>
     <canvas id="gameCanvas" width="256" height="256"></canvas>
   </div>
 `;
