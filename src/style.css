@@ -65,3 +65,8 @@ button:hover {
   color: black;
   transform: translateY(-1px);
 }
+
+/* Tool preview transition (optional smoothness) */
+canvas {
+  transition: all 0.05s ease;
+}

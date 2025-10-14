@@ -52,6 +52,31 @@ class MarkerLine {
   }
 }
 
+// ToolPreview class (represents the floating marker preview)
+class ToolPreview {
+  constructor(
+    private x: number,
+    private y: number,
+    private thickness: number,
+  ) {}
+
+  // Update preview position and thickness
+  update(x: number, y: number, thickness: number) {
+    this.x = x;
+    this.y = y;
+    this.thickness = thickness;
+  }
+
+  // Draw the preview circle on the canvas
+  display(ctx: CanvasRenderingContext2D) {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = "gray";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
 const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
@@ -61,8 +86,9 @@ let redoStack: MarkerLine[] = []; // Undone lines waiting to be redone
 let currentLine: MarkerLine | null = null;
 let isDrawing = false;
 
-// Marker tool state
+// Tool data
 let currentThickness = 2; // Default to thin marker
+let preview: ToolPreview | null = null; // Current tool preview object
 
 // Button Elements
 const thinButton = document.getElementById("thinButton") as HTMLButtonElement;
@@ -77,11 +103,18 @@ function redraw() {
   for (const line of drawing) {
     line.display(ctx);
   }
+
+  // Draw tool preview if available and not drawing
+  if (!isDrawing && preview) {
+    preview.display(ctx);
+  }
+
   updateButtonStates();
 }
 
 // Observer pattern: redraw on event
 canvas.addEventListener("drawing-changed", redraw);
+canvas.addEventListener("tool-moved", redraw);
 
 // Enable/disable undo and redo buttons
 function updateButtonStates() {
@@ -101,7 +134,7 @@ function selectTool(thickness: number, button: HTMLButtonElement) {
   button.classList.add("selectedTool");
 }
 
-// Default tool is thin
+// Default to thin marker
 selectTool(2, thinButton);
 
 // Mouse Input
@@ -114,19 +147,33 @@ canvas.addEventListener("mousedown", (event) => {
 });
 
 canvas.addEventListener("mousemove", (event) => {
-  if (!isDrawing || !currentLine) return;
-  currentLine.drag(event.offsetX, event.offsetY);
-  canvas.dispatchEvent(new Event("drawing-changed"));
+  // Update or create tool preview
+  if (!preview) {
+    preview = new ToolPreview(event.offsetX, event.offsetY, currentThickness);
+  } else {
+    preview.update(event.offsetX, event.offsetY, currentThickness);
+  }
+
+  // If drawing, add points to current line
+  if (isDrawing && currentLine) {
+    currentLine.drag(event.offsetX, event.offsetY);
+    canvas.dispatchEvent(new Event("drawing-changed"));
+  } else {
+    // Otherwise, just move the tool preview
+    canvas.dispatchEvent(new Event("tool-moved"));
+  }
 });
 
 canvas.addEventListener("mouseup", () => {
   isDrawing = false;
   currentLine = null;
+  canvas.dispatchEvent(new Event("tool-moved"));
 });
 
 canvas.addEventListener("mouseleave", () => {
   isDrawing = false;
-  currentLine = null;
+  preview = null; // Hide preview when mouse leaves the canvas
+  canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
 // Undo & Redo Logic
