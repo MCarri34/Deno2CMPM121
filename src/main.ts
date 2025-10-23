@@ -11,10 +11,10 @@ document.body.innerHTML = `
       <button id="thickButton">Thick Marker</button>
     </div>
 
+    <div id="stickerRow" class="button-row"></div>
+
     <div class="button-row">
-      <button id="starSticker">⭐</button>
-      <button id="catSticker">🐱</button>
-      <button id="balloonSticker">🎈</button>
+      <button id="addStickerButton">Add Custom Sticker</button>
     </div>
 
     <div class="button-row">
@@ -62,15 +62,7 @@ class MarkerLine {
 
 // Sticker class (represents a placed emoji)
 class Sticker {
-  private x: number;
-  private y: number;
-  private emoji: string;
-
-  constructor(x: number, y: number, emoji: string) {
-    this.x = x;
-    this.y = y;
-    this.emoji = emoji;
-  }
+  constructor(private x: number, private y: number, private emoji: string) {}
 
   // Move sticker (drag behavior)
   drag(x: number, y: number) {
@@ -97,7 +89,7 @@ class ToolPreview {
     private emoji: string | null,
   ) {}
 
-  // Update preview position and type
+  // Update preview position and tool info
   update(
     x: number,
     y: number,
@@ -124,7 +116,7 @@ class ToolPreview {
       ctx.font = "32px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.fillStyle = "black"; // made preview opaque
       ctx.fillText(this.emoji, this.x, this.y);
     }
   }
@@ -134,41 +126,52 @@ const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
 // Drawing data (Display List)
-let drawing: (MarkerLine | Sticker)[] = []; // All drawn items
-let redoStack: (MarkerLine | Sticker)[] = []; // Undone items waiting to be redone
+let drawing: (MarkerLine | Sticker)[] = [];
+let redoStack: (MarkerLine | Sticker)[] = [];
 let currentCommand: MarkerLine | Sticker | null = null;
 let isDrawing = false;
 
 // Tool data
 let currentTool: "marker" | "sticker" = "marker";
-let currentThickness = 2; // Default marker thickness
-let currentEmoji: string | null = null; // Currently selected sticker
-let preview: ToolPreview | null = null; // Preview object
+let currentThickness = 2;
+let currentEmoji: string | null = null;
+let preview: ToolPreview | null = null;
+
+// Base stickers list (data-driven)
+const stickers: Array<{ emoji: string }> = [
+  { emoji: "⭐" },
+  { emoji: "🐱" },
+  { emoji: "🎈" },
+];
 
 // Button Elements
 const thinButton = document.getElementById("thinButton") as HTMLButtonElement;
 const thickButton = document.getElementById("thickButton") as HTMLButtonElement;
-const starSticker = document.getElementById("starSticker") as HTMLButtonElement;
-const catSticker = document.getElementById("catSticker") as HTMLButtonElement;
-const balloonSticker = document.getElementById(
-  "balloonSticker",
+const stickerRow = document.getElementById("stickerRow") as HTMLDivElement;
+const addStickerButton = document.getElementById(
+  "addStickerButton",
 ) as HTMLButtonElement;
 const undoButton = document.getElementById("undoButton") as HTMLButtonElement;
 const redoButton = document.getElementById("redoButton") as HTMLButtonElement;
 const clearButton = document.getElementById("clearButton") as HTMLButtonElement;
 
+// Dynamically create sticker buttons
+function renderStickerButtons() {
+  stickerRow.innerHTML = "";
+  stickers.forEach((s) => {
+    const btn = document.createElement("button");
+    btn.textContent = s.emoji;
+    btn.addEventListener("click", () => selectSticker(s.emoji, btn));
+    stickerRow.appendChild(btn);
+  });
+}
+renderStickerButtons();
+
 // Redraw function
 function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (const item of drawing) {
-    item.display(ctx);
-  }
-
-  // Draw tool preview if available and not drawing
-  if (!isDrawing && preview) {
-    preview.display(ctx);
-  }
-
+  for (const item of drawing) item.display(ctx);
+  if (!isDrawing && preview) preview.display(ctx);
   updateButtonStates();
 }
 
@@ -188,12 +191,7 @@ function selectTool(thickness: number, button: HTMLButtonElement) {
   currentThickness = thickness;
   currentEmoji = null;
 
-  thinButton.classList.remove("selectedTool");
-  thickButton.classList.remove("selectedTool");
-  starSticker.classList.remove("selectedTool");
-  catSticker.classList.remove("selectedTool");
-  balloonSticker.classList.remove("selectedTool");
-
+  clearSelections();
   button.classList.add("selectedTool");
   canvas.dispatchEvent(new Event("tool-moved"));
 }
@@ -203,14 +201,16 @@ function selectSticker(emoji: string, button: HTMLButtonElement) {
   currentTool = "sticker";
   currentEmoji = emoji;
 
-  thinButton.classList.remove("selectedTool");
-  thickButton.classList.remove("selectedTool");
-  starSticker.classList.remove("selectedTool");
-  catSticker.classList.remove("selectedTool");
-  balloonSticker.classList.remove("selectedTool");
-
+  clearSelections();
   button.classList.add("selectedTool");
   canvas.dispatchEvent(new Event("tool-moved"));
+}
+
+// Clear all tool button selections
+function clearSelections() {
+  document.querySelectorAll(".selectedTool").forEach((btn) =>
+    btn.classList.remove("selectedTool")
+  );
 }
 
 // Default to thin marker
@@ -300,15 +300,19 @@ clearButton.addEventListener("click", () => {
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
+// Custom Sticker Button
+addStickerButton.addEventListener("click", () => {
+  const text = prompt("Enter your custom sticker:", "🧽");
+  if (text && text.trim() !== "") {
+    stickers.push({ emoji: text.trim() });
+    renderStickerButtons();
+    canvas.dispatchEvent(new Event("tool-moved"));
+  }
+});
+
 // Tool Button Events
 thinButton.addEventListener("click", () => selectTool(2, thinButton));
 thickButton.addEventListener("click", () => selectTool(6, thickButton));
-starSticker.addEventListener("click", () => selectSticker("⭐", starSticker));
-catSticker.addEventListener("click", () => selectSticker("🐱", catSticker));
-balloonSticker.addEventListener(
-  "click",
-  () => selectSticker("🎈", balloonSticker),
-);
 
 // Initialize button states
 updateButtonStates();

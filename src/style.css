@@ -82,3 +82,15 @@ canvas {
   color: black;
   transform: translateY(-1px);
 }
+
+#stickerRow button {
+  font-size: 22px;
+}
+
+#addStickerButton {
+  background-color: #4caf50;
+}
+
+#addStickerButton:hover {
+  background-color: #45a049;
+}
