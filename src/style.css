@@ -109,3 +109,81 @@ button.selectedTool {
   transform: scale(1.05);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
+
+/* Hue color slider */
+#colorSlider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 180px;
+  height: 12px;
+  border-radius: 6px;
+  outline: none;
+  background: linear-gradient(
+    to right,
+    hsl(0, 100%, 50%),
+    hsl(60, 100%, 50%),
+    hsl(120, 100%, 50%),
+    hsl(180, 100%, 50%),
+    hsl(240, 100%, 50%),
+    hsl(300, 100%, 50%),
+    hsl(360, 100%, 50%)
+  );
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+/* Rotation slider */
+#rotationSlider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 180px;
+  height: 12px;
+  border-radius: 6px;
+  outline: none;
+  background: linear-gradient(
+    to right,
+    #000,
+    #333,
+    #666,
+    #999,
+    #ccc,
+    #fff
+  );
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+/* Common thumb style for both sliders */
+#colorSlider::-webkit-slider-thumb,
+#rotationSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: black;
+  border: 2px solid white;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+#colorSlider::-webkit-slider-thumb:hover,
+#rotationSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+#colorSlider::-moz-range-thumb,
+#rotationSlider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: black;
+  border: 2px solid white;
+  cursor: pointer;
+}
+
+/* Label styling */
+label {
+  font-weight: 600;
+  margin-right: 6px;
+}

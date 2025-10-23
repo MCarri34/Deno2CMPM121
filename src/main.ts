@@ -12,6 +12,16 @@ document.body.innerHTML = `
       <button id="markerButton">Bold Brush</button>
     </div>
 
+    <div class="button-row">
+      <label for="colorSlider">Brush Hue:</label>
+      <input type="range" id="colorSlider" min="0" max="360" value="0">
+    </div>
+
+    <div class="button-row">
+      <label for="rotationSlider">Sticker Rotation:</label>
+      <input type="range" id="rotationSlider" min="0" max="360" value="0">
+    </div>
+
     <div id="stickerRow" class="button-row"></div>
 
     <div class="button-row">
@@ -31,10 +41,17 @@ document.body.innerHTML = `
 class DoodleLine {
   private points: { x: number; y: number }[] = [];
   private thickness: number;
+  private color: string;
 
-  constructor(startX: number, startY: number, thickness: number) {
+  constructor(
+    startX: number,
+    startY: number,
+    thickness: number,
+    color: string,
+  ) {
     this.points.push({ x: startX, y: startY });
     this.thickness = thickness;
+    this.color = color;
   }
 
   drag(x: number, y: number) {
@@ -50,7 +67,7 @@ class DoodleLine {
       const pt = this.points[i]!;
       ctx.lineTo(pt.x, pt.y);
     }
-    ctx.strokeStyle = "#222";
+    ctx.strokeStyle = this.color;
     ctx.lineWidth = this.thickness;
     ctx.lineCap = "round";
     ctx.stroke();
@@ -59,23 +76,29 @@ class DoodleLine {
 
 // Sticker class (represents a placed emoji)
 class Sticker {
-  constructor(private x: number, private y: number, private emoji: string) {}
+  constructor(
+    private x: number,
+    private y: number,
+    private emoji: string,
+    private rotation: number,
+  ) {}
 
-  // Move sticker (drag behavior)
   drag(x: number, y: number) {
     this.x = x;
     this.y = y;
   }
 
-  // Draw the sticker on the canvas (fully opaque)
   display(ctx: CanvasRenderingContext2D) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate((this.rotation * Math.PI) / 180);
     ctx.font = "36px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = "black"; // fully opaque
-    ctx.globalAlpha = 1.0; // ensure no transparency
-    ctx.fillText(this.emoji, this.x, this.y);
-    ctx.globalAlpha = 1.0; // reset alpha for safety
+    ctx.fillStyle = "black";
+    ctx.globalAlpha = 1.0;
+    ctx.fillText(this.emoji, 0, 0);
+    ctx.restore();
   }
 }
 
@@ -87,6 +110,8 @@ class ToolPreview {
     private type: "pen" | "sticker",
     private thickness: number,
     private emoji: string | null,
+    private color: string,
+    private rotation: number,
   ) {}
 
   update(
@@ -95,29 +120,36 @@ class ToolPreview {
     type: "pen" | "sticker",
     thickness: number,
     emoji: string | null,
+    color: string,
+    rotation: number,
   ) {
     this.x = x;
     this.y = y;
     this.type = type;
     this.thickness = thickness;
     this.emoji = emoji;
+    this.color = color;
+    this.rotation = rotation;
   }
 
-  // Draw the preview shape or sticker (semi-transparent)
   display(ctx: CanvasRenderingContext2D) {
     if (this.type === "pen") {
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
-      ctx.strokeStyle = "gray";
+      ctx.strokeStyle = this.color;
       ctx.lineWidth = 1;
       ctx.stroke();
     } else if (this.type === "sticker" && this.emoji) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate((this.rotation * Math.PI) / 180);
       ctx.font = "36px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.globalAlpha = 0.4; // make preview semi-transparent
-      ctx.fillText(this.emoji, this.x, this.y);
-      ctx.globalAlpha = 1.0; // reset for other drawings
+      ctx.globalAlpha = 0.4;
+      ctx.fillText(this.emoji, 0, 0);
+      ctx.restore();
+      ctx.globalAlpha = 1.0;
     }
   }
 }
@@ -134,10 +166,12 @@ let isDrawing = false;
 // Tool data
 let currentTool: "pen" | "sticker" = "pen";
 let currentThickness = 1.8;
+let currentColor = "hsl(0, 100%, 50%)"; // bright red default
+let currentRotation = 0;
 let currentEmoji: string | null = null;
 let preview: ToolPreview | null = null;
 
-// Base sticker set (friendlier variety)
+// Base sticker set
 const stickers: Array<{ emoji: string }> = [
   { emoji: "🌸" },
   { emoji: "🌈" },
@@ -145,7 +179,7 @@ const stickers: Array<{ emoji: string }> = [
   { emoji: "🐸" },
 ];
 
-// Buttons
+// Buttons and sliders
 const pencilButton = document.getElementById(
   "pencilButton",
 ) as HTMLButtonElement;
@@ -162,8 +196,12 @@ const clearButton = document.getElementById("clearButton") as HTMLButtonElement;
 const exportButton = document.getElementById(
   "exportButton",
 ) as HTMLButtonElement;
+const colorSlider = document.getElementById("colorSlider") as HTMLInputElement;
+const rotationSlider = document.getElementById(
+  "rotationSlider",
+) as HTMLInputElement;
 
-// Render sticker buttons
+// Dynamically create sticker buttons
 function renderStickerButtons() {
   stickerRow.innerHTML = "";
   stickers.forEach((s) => {
@@ -175,7 +213,7 @@ function renderStickerButtons() {
 }
 renderStickerButtons();
 
-// Redraw
+// Redraw function
 function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for (const item of drawing) item.display(ctx);
@@ -183,15 +221,17 @@ function redraw() {
   updateButtonStates();
 }
 
+// Observer pattern
 canvas.addEventListener("drawing-changed", redraw);
 canvas.addEventListener("tool-moved", redraw);
 
+// Update undo/redo state
 function updateButtonStates() {
   undoButton.disabled = drawing.length === 0;
   redoButton.disabled = redoStack.length === 0;
 }
 
-// Tool Selection
+// Tool selection
 function selectPen(thickness: number, button: HTMLButtonElement) {
   currentTool = "pen";
   currentThickness = thickness;
@@ -201,7 +241,6 @@ function selectPen(thickness: number, button: HTMLButtonElement) {
   canvas.dispatchEvent(new Event("tool-moved"));
 }
 
-// Sticker Selection
 function selectSticker(emoji: string, button: HTMLButtonElement) {
   currentTool = "sticker";
   currentEmoji = emoji;
@@ -210,16 +249,30 @@ function selectSticker(emoji: string, button: HTMLButtonElement) {
   canvas.dispatchEvent(new Event("tool-moved"));
 }
 
-// Clear Selections
 function clearSelections() {
   document.querySelectorAll(".selectedTool").forEach((btn) =>
     btn.classList.remove("selectedTool")
   );
 }
 
+// Default to pen
 selectPen(1.8, pencilButton);
 
-// Mouse Input
+// Color slider: controls pen hue
+colorSlider.addEventListener("input", () => {
+  const hue = Number(colorSlider.value);
+  currentColor = `hsl(${hue}, 100%, 50%)`;
+  canvas.dispatchEvent(new Event("tool-moved"));
+});
+
+// Rotation slider: controls sticker rotation
+rotationSlider.addEventListener("input", () => {
+  const angle = Number(rotationSlider.value);
+  currentRotation = angle;
+  canvas.dispatchEvent(new Event("tool-moved"));
+});
+
+// Mouse input
 canvas.addEventListener("mousedown", (event) => {
   isDrawing = true;
   if (currentTool === "pen") {
@@ -227,10 +280,17 @@ canvas.addEventListener("mousedown", (event) => {
       event.offsetX,
       event.offsetY,
       currentThickness,
+      currentColor,
     );
   } else if (currentTool === "sticker" && currentEmoji) {
-    currentCommand = new Sticker(event.offsetX, event.offsetY, currentEmoji);
+    currentCommand = new Sticker(
+      event.offsetX,
+      event.offsetY,
+      currentEmoji,
+      currentRotation,
+    );
   }
+
   if (currentCommand) {
     drawing.push(currentCommand);
     redoStack = [];
@@ -246,6 +306,8 @@ canvas.addEventListener("mousemove", (event) => {
       currentTool,
       currentThickness,
       currentEmoji,
+      currentColor,
+      currentRotation,
     );
   } else {
     preview.update(
@@ -254,6 +316,8 @@ canvas.addEventListener("mousemove", (event) => {
       currentTool,
       currentThickness,
       currentEmoji,
+      currentColor,
+      currentRotation,
     );
   }
 
@@ -296,7 +360,7 @@ clearButton.addEventListener("click", () => {
   canvas.dispatchEvent(new Event("drawing-changed"));
 });
 
-// Custom Sticker
+// Custom sticker
 addStickerButton.addEventListener("click", () => {
   const text = prompt("Enter your custom sticker:", "✨");
   if (text && text.trim()) {
@@ -320,9 +384,9 @@ exportButton.addEventListener("click", () => {
   anchor.click();
 });
 
-// Tool Buttons
+// Tool buttons
 pencilButton.addEventListener("click", () => selectPen(1.8, pencilButton));
 markerButton.addEventListener("click", () => selectPen(5, markerButton));
 
-// Initialize buttons
+// Initialize
 updateButtonStates();
