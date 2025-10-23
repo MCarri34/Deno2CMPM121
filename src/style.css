@@ -94,3 +94,18 @@ canvas {
 #addStickerButton:hover {
   background-color: #45a049;
 }
+
+canvas {
+  border: 2px solid #222;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  margin-top: 16px;
+  background-color: #fff;
+}
+
+button.selectedTool {
+  background-color: #ffcc00;
+  color: #222;
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
