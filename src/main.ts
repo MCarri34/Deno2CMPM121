@@ -21,6 +21,7 @@ document.body.innerHTML = `
       <button id="undoButton">Undo</button>
       <button id="redoButton">Redo</button>
       <button id="clearButton">Clear Canvas</button>
+      <button id="exportButton">Export PNG</button>
     </div>
   </div>
 `;
@@ -116,7 +117,7 @@ class ToolPreview {
       ctx.font = "32px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = "black"; // made preview opaque
+      ctx.fillStyle = "black";
       ctx.fillText(this.emoji, this.x, this.y);
     }
   }
@@ -154,6 +155,9 @@ const addStickerButton = document.getElementById(
 const undoButton = document.getElementById("undoButton") as HTMLButtonElement;
 const redoButton = document.getElementById("redoButton") as HTMLButtonElement;
 const clearButton = document.getElementById("clearButton") as HTMLButtonElement;
+const exportButton = document.getElementById(
+  "exportButton",
+) as HTMLButtonElement;
 
 // Dynamically create sticker buttons
 function renderStickerButtons() {
@@ -308,6 +312,29 @@ addStickerButton.addEventListener("click", () => {
     renderStickerButtons();
     canvas.dispatchEvent(new Event("tool-moved"));
   }
+});
+
+// Export Button (Step 10)
+exportButton.addEventListener("click", () => {
+  // Create a high-resolution canvas
+  const exportCanvas = document.createElement("canvas");
+  exportCanvas.width = 1024;
+  exportCanvas.height = 1024;
+  const exportCtx = exportCanvas.getContext("2d")!;
+
+  // Scale up (4x)
+  exportCtx.scale(4, 4);
+
+  // Draw everything in high resolution
+  for (const item of drawing) {
+    item.display(exportCtx);
+  }
+
+  // Trigger PNG download
+  const anchor = document.createElement("a");
+  anchor.href = exportCanvas.toDataURL("image/png");
+  anchor.download = "sketchpad.png";
+  anchor.click();
 });
 
 // Tool Button Events
